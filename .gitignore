@@ -1,0 +1,9 @@
+*.ldif
+*.csv
+*.log
+*.tar
+*.tar.gz
+.env
+.env.*
+logs/
+zimbra-migration-*/
