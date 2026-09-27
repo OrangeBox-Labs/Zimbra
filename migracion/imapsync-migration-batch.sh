@@ -102,6 +102,8 @@ THRESHOLD_MIB=10
 
 # Umbral independiente para imágenes inline/CID, principalmente firmas HTML.
 INLINE_THRESHOLD_MIB=1
+# IMAPSync usa /tmp por defecto; se cambia a /opt/tmp para evitar agotar
+# los inodos de la partición /tmp durante migraciones paralelas.
 IMAPSYNC_TMPDIR='/opt/tmp'
 
 # Indica si el filtro MIME de attachments está activo: 1=activo, 0=desactivado.
