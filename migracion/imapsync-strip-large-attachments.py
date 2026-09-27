@@ -160,6 +160,7 @@ def filter_part(
                     "mime_type": part.get_content_type(),
                     "disposition": disposition,
                     "size_bytes": size,
+                    "threshold_bytes": inline_threshold_bytes,
                     "reason": "inline_image",
                 }
             )
@@ -179,6 +180,7 @@ def filter_part(
             "mime_type": part.get_content_type(),
             "disposition": disposition,
             "size_bytes": size,
+            "threshold_bytes": threshold_bytes,
             "reason": "attachment",
         }
     )
@@ -186,7 +188,13 @@ def filter_part(
     return False, True
 
 
-def write_audit(path, message, removals, threshold_bytes):
+def write_audit(
+    path,
+    message,
+    removals,
+    threshold_bytes,
+    report_only=False,
+):
     if not path or not removals:
         return
 
@@ -233,8 +241,8 @@ def write_audit(path, message, removals, threshold_bytes):
                     item["disposition"],
                     item["size_bytes"],
                     "%.6f" % (item["size_bytes"] / 1048576.0),
-                    threshold_bytes,
-                    "removed",
+                    item.get("threshold_bytes", threshold_bytes),
+                    "would_remove" if report_only else "removed",
                 ])
             fh.flush()
         finally:
@@ -284,7 +292,13 @@ def transform(
         # originales, sin parsear/reserializar el mensaje.
         return raw_message, removals
 
-    write_audit(log_path, message, removals, threshold_bytes)
+    write_audit(
+        log_path,
+        message,
+        removals,
+        threshold_bytes,
+        report_only=report_only,
+    )
 
     if report_only:
         return raw_message, removals
@@ -387,14 +401,16 @@ def main():
 
     if removals:
         print(
-            "[OrangeBox] %d attachment(s) > %d bytes"
-            % (len(removals), threshold_bytes),
+            "[OrangeBox] %d coincidencia(s) sobre el umbral configurado"
+            % len(removals),
             file=sys.stderr,
         )
         for item in removals:
             action = (
-                "report-inline-image"
+                "would-remove-inline-image"
                 if item.get("reason") == "inline_image" and args.report_only
+                else "would-remove"
+                if args.report_only
                 else "removed"
             )
             print(
