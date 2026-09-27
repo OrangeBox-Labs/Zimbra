@@ -54,8 +54,21 @@ def attachment_info(part):
     except Exception:
         pass
 
+    content_id = part.get("Content-ID", "") or ""
+    mime_type = part.get_content_type().lower()
+
+    is_attachment = disposition == "attachment" or bool(filename)
+    is_inline_image = (
+        mime_type.startswith("image/")
+        and (
+            disposition == "inline"
+            or bool(content_id)
+        )
+    )
+
     return (
-        disposition == "attachment" or bool(filename),
+        is_attachment,
+        is_inline_image,
         filename_of(part),
         disposition,
     )
@@ -96,7 +109,13 @@ def is_container(part):
     )
 
 
-def filter_part(part, part_number, threshold_bytes, removals):
+def filter_part(
+    part,
+    part_number,
+    threshold_bytes,
+    inline_threshold_bytes,
+    removals,
+):
     """Devuelve (keep, changed)."""
     if is_container(part):
         payload = part.get_payload()
@@ -113,6 +132,7 @@ def filter_part(part, part_number, threshold_bytes, removals):
                 child,
                 "%s.%d" % (part_number, index),
                 threshold_bytes,
+                inline_threshold_bytes,
                 removals,
             )
             changed = changed or child_changed
@@ -124,14 +144,31 @@ def filter_part(part, part_number, threshold_bytes, removals):
 
         return True, changed
 
-    is_attachment, filename, disposition = attachment_info(part)
+    is_attachment, is_inline_image, filename, disposition = attachment_info(part)
+
+    size = part_size(part)
+
+    if is_inline_image and inline_threshold_bytes > 0:
+        # Las imágenes inline/CID tienen un umbral independiente para poder
+        # detectar firmas HTML y recursos embebidos sin bajar el límite general
+        # de attachments.
+        if size > inline_threshold_bytes:
+            removals.append(
+                {
+                    "part": part_number,
+                    "filename": filename,
+                    "mime_type": part.get_content_type(),
+                    "disposition": disposition,
+                    "size_bytes": size,
+                    "reason": "inline_image",
+                }
+            )
+            return False, True
 
     if not is_attachment:
         return True, False
 
-    size = part_size(part)
-
-    # La política es estrictamente "mayor a 5 MiB".
+    # La política general sigue siendo estrictamente "mayor al umbral".
     if size <= threshold_bytes:
         return True, False
 
@@ -142,6 +179,7 @@ def filter_part(part, part_number, threshold_bytes, removals):
             "mime_type": part.get_content_type(),
             "disposition": disposition,
             "size_bytes": size,
+            "reason": "attachment",
         }
     )
 
@@ -203,7 +241,13 @@ def write_audit(path, message, removals, threshold_bytes):
             fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
 
 
-def transform(raw_message, threshold_bytes, log_path, report_only=False):
+def transform(
+    raw_message,
+    threshold_bytes,
+    inline_threshold_bytes,
+    log_path,
+    report_only=False,
+):
     try:
         message = BytesParser(policy=policy.default).parsebytes(raw_message)
     except Exception as exc:
@@ -225,6 +269,7 @@ def transform(raw_message, threshold_bytes, log_path, report_only=False):
                 child,
                 str(index),
                 threshold_bytes,
+                inline_threshold_bytes,
                 removals,
             )
             changed = changed or child_changed
@@ -289,6 +334,15 @@ def main():
         help="CSV de auditoría; vacío para no registrar archivo.",
     )
     parser.add_argument(
+        "--inline-threshold-mib",
+        type=float,
+        default=0.0,
+        help=(
+            "Umbral independiente para imágenes inline/CID. "
+            "0 desactiva esta regla."
+        ),
+    )
+    parser.add_argument(
         "--report-only",
         action="store_true",
         help="Reporta coincidencias pero entrega el mensaje original.",
@@ -303,7 +357,15 @@ def main():
         )
         return 2
 
+    if args.inline_threshold_mib < 0:
+        print(
+            "ERROR: --inline-threshold-mib no puede ser negativo.",
+            file=sys.stderr,
+        )
+        return 2
+
     threshold_bytes = int(args.threshold_mib * 1024 * 1024)
+    inline_threshold_bytes = int(args.inline_threshold_mib * 1024 * 1024)
     raw_message = sys.stdin.buffer.read()
 
     if not raw_message:
@@ -314,6 +376,7 @@ def main():
         output, removals = transform(
             raw_message,
             threshold_bytes,
+            inline_threshold_bytes,
             args.log,
             report_only=args.report_only,
         )
@@ -329,9 +392,15 @@ def main():
             file=sys.stderr,
         )
         for item in removals:
+            action = (
+                "report-inline-image"
+                if item.get("reason") == "inline_image" and args.report_only
+                else "removed"
+            )
             print(
-                "[OrangeBox] removed part=%s file=%s size=%d mime=%s"
+                "[OrangeBox] %s part=%s file=%s size=%d mime=%s"
                 % (
+                    action,
                     item["part"],
                     item["filename"] or "<sin nombre>",
                     item["size_bytes"],
