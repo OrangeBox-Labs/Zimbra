@@ -44,7 +44,7 @@ Para una cuenta individual:
 
 Para una migración masiva se usa `imapsync-migration-batch.sh`. Ejecuta múltiples instancias independientes de IMAPSync en paralelo; el valor por defecto es **8 cuentas simultáneas** y se puede modificar con `-p`.
 
-El modo batch utiliza autenticación administrativa de Zimbra mediante `--authuser1` y `--authuser2`, por lo que no es necesario guardar las passwords individuales de cada cuenta en el archivo de usuarios. La documentación oficial de IMAPSync confirma este mecanismo para Zimbra y recomienda autenticación administrativa cuando está disponible. citeturn468547view0
+El modo batch utiliza autenticación administrativa de Zimbra mediante `--authuser1` y `--authuser2`, por lo que no es necesario guardar las passwords individuales de cada cuenta en el archivo de usuarios. La documentación oficial de IMAPSync confirma este mecanismo para Zimbra y recomienda autenticación administrativa cuando está disponible.
 
 Archivo de cuentas:
 
@@ -81,7 +81,7 @@ Para trabajar con 4 cuentas simultáneas:
   -p 4
 ```
 
-IMAPSync no incorpora actualmente la migración masiva dentro del propio binario; su documentación oficial proporciona scripts Unix para ejecutar varias cuentas, incluyendo un ejemplo de paralelización con GNU Parallel. citeturn469350search1turn981612view0
+IMAPSync no incorpora actualmente la migración masiva dentro del propio binario; su documentación oficial proporciona scripts Unix para ejecutar varias cuentas, incluyendo un ejemplo de paralelización con GNU Parallel.
 
 ## Política de attachments
 
@@ -125,6 +125,6 @@ El tráfico entre ambos Zimbra no se utiliza como criterio de descarte de attach
 
 ## Seguridad
 
-Las passwords se solicitan una vez y se entregan a IMAPSync mediante `IMAPSYNC_PASSWORD1` y `IMAPSYNC_PASSWORD2`, funcionalidad disponible desde IMAPSync 2.229. citeturn541445search1
+Las passwords se solicitan una vez y se entregan a IMAPSync mediante `IMAPSYNC_PASSWORD1` y `IMAPSYNC_PASSWORD2`, funcionalidad disponible desde IMAPSync 2.229.
 
 No publiques passwords, exports, logs de migración ni bundles completos en GitHub.
