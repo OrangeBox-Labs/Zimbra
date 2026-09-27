@@ -57,19 +57,36 @@ El script no solicita passwords por consola.
 USAGE
 }
 
-# Hostname o IP del servidor Zimbra de origen.
+# ============================================================
+# CONFIGURACIÓN DE ORIGEN Y DESTINO
+# ============================================================
+# Servidor Zimbra de origen.
 SOURCE_HOST=""
 
-# Hostname o IP del servidor Zimbra de destino.
-TARGET_HOST=""
-
-# Cuenta administrativa de Zimbra en el servidor de origen.
-# Se utiliza junto con --authuser1 para migrar cada buzón sin conocer su password.
+# Cuenta administrativa de Zimbra en el origen.
 SOURCE_ADMIN=""
 
-# Cuenta administrativa de Zimbra en el servidor de destino.
-# Se utiliza junto con --authuser2 para entregar los mensajes al buzón correspondiente.
+# Password de la cuenta administrativa en el origen.
+# IMPORTANTE: no subir una password real a GitHub.
+SOURCE_ADMIN_PASSWORD=""
+
+# Servidor Zimbra de destino.
+TARGET_HOST=""
+
+# Cuenta administrativa de Zimbra en el destino.
 TARGET_ADMIN=""
+
+# Password de la cuenta administrativa en el destino.
+# IMPORTANTE: no subir una password real a GitHub.
+TARGET_ADMIN_PASSWORD=""
+
+# Puertos IMAPS.
+SOURCE_PORT=993
+TARGET_PORT=993
+
+# ============================================================
+# CONFIGURACIÓN GENERAL
+# ============================================================
 
 # Archivo de texto que contiene una cuenta de correo por línea.
 USERS_FILE=""
@@ -89,22 +106,6 @@ FILTER=1
 
 # Cantidad de segundos entre el inicio de cada proceso paralelo.
 DELAY=1
-
-# Puerto IMAPS del servidor de origen.
-SOURCE_PORT=993
-
-# Puerto IMAPS del servidor de destino.
-TARGET_PORT=993
-
-# Password de la cuenta administrativa de Zimbra en el servidor de origen.
-# Esta variable debe contener la password utilizada por IMAPSync para --authuser1.
-# IMPORTANTE: no subir una password real a GitHub.
-SOURCE_ADMIN_PASSWORD=""
-
-# Password de la cuenta administrativa de Zimbra en el servidor de destino.
-# Esta variable debe contener la password utilizada por IMAPSync para --authuser2.
-# IMPORTANTE: no subir una password real a GitHub.
-TARGET_ADMIN_PASSWORD=""
 
 # Procesamiento de parámetros de línea de comandos.
 while [[ $# -gt 0 ]]; do
