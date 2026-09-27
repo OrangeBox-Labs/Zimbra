@@ -1,0 +1,5 @@
+# Una cuenta por línea
+# Se ignoran líneas vacías y comentarios.
+usuario1@example.com
+usuario2@example.com
+usuario3@example.com
