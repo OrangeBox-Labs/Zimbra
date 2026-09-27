@@ -31,20 +31,26 @@ La restauración automática prioriza la base funcional de correo:
 
 Las preferencias `zimbraPref*` genéricas y atributos dependientes del servidor no se fuerzan en el restore base.
 
-## imapsync
+## IMAPSync
 
-`imapsync-migration.sh` trabaja sobre los buzones después de reconstruir las cuentas en el nuevo servidor.
+La migración de buzones usa `imapsync-migration.sh`.
+
+Por defecto, la migración mantiene todos los mensajes pero aplica una política MIME para **omitir únicamente attachments mayores a 5 MiB**. El mensaje no se descarta completo por superar ese tamaño.
+
+El filtro `imapsync-strip-large-attachments.py` se ejecuta mediante `--pipemess` y registra cada eliminación en `logs/large-attachments.csv`.
 
 Ejemplo:
 
 ```bash
-./imapsync-migration.sh \\
-  -s zimbra-viejo.example.cl \\
-  -t zimbra-nuevo.example.cl \\
+./imapsync-migration.sh \
+  -s zimbra-viejo.example.cl \
+  -t zimbra-nuevo.example.cl \
   -u usuario@example.cl
 ```
 
 Las contraseñas se pueden proporcionar mediante `SOURCE_PASSWORD` y `TARGET_PASSWORD` o ingresarlas de forma interactiva.
+
+La documentación completa está en [`imapsync-migration.md`](./imapsync-migration.md).
 
 ## Seguridad
 
