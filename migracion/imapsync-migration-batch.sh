@@ -333,15 +333,21 @@ export -f sanitize_account run_one
 export IMAPSYNC_PASSWORD1 IMAPSYNC_PASSWORD2
 
 # Lanzar las migraciones concurrentes.
+# run_one es una función Bash exportada para que GNU Parallel pueda ejecutarla
+# directamente en cada proceso hijo.
+#
 # --max-procs limita la cantidad de buzones procesados simultáneamente.
 # --delay evita iniciar todos los procesos exactamente al mismo tiempo.
 # --line-buffer mantiene la salida de cada proceso legible.
+#
+# La lista limpia se entrega mediante ::::, por lo que cada línea de
+# CLEAN_USERS llega directamente como $1 de run_one.
 parallel --will-cite \
     --max-procs "$PARALLEL" \
     --delay "$DELAY" \
     --line-buffer \
     --tagstring '[{#}]' \
-    bash -c 'run_one "$1"' _ {} \
+    run_one \
     :::: "$CLEAN_USERS"
 
 echo
