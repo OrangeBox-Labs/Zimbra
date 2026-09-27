@@ -31,7 +31,7 @@ LOG_DIR="$BASE_DIR/logs/imapsync-batch"
 
 # Directorio temporal utilizado por IMAPSync para cache y archivos temporales.
 # Se puede sobrescribir mediante la variable de entorno IMAPSYNC_TMPDIR.
-IMAPSYNC_TMPDIR="${IMAPSYNC_TMPDIR:-/opt/tmp}"
+IMAPSYNC_TMPDIR='/opt/tmp'
 
 usage() {
     cat <<'USAGE'
@@ -51,7 +51,7 @@ Opciones:
   --delay SEC               Espera entre inicios (default: 1)
 
 Variable de entorno:
-  IMAPSYNC_TMPDIR            Directorio temporal de IMAPSync (default: /opt/tmp)
+  IMAPSYNC_TMPDIR            Directorio temporal de IMAPSync (configurado en el script)
   -h, --help    Ayuda
 
 La autenticación usa las cuentas admin de Zimbra:
