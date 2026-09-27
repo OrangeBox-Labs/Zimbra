@@ -22,8 +22,13 @@ Opciones:
   --delay SEC   Espera entre inicios (default: 1)
   -h, --help    Ayuda
 
-Las passwords se solicitan una vez y se entregan a imapsync mediante
-IMAPSYNC_PASSWORD1 e IMAPSYNC_PASSWORD2.
+La autenticación usa las cuentas admin de Zimbra:
+  --user1 cuenta --authuser1 admin
+  --user2 cuenta --authuser2 admin
+
+Las passwords se solicitan una vez y se entregan mediante:
+  IMAPSYNC_PASSWORD1
+  IMAPSYNC_PASSWORD2
 USAGE
 }
 
@@ -120,6 +125,7 @@ run_one() {
     local safe
     local account_log
     local filter_command
+    local rc
     local -a args
 
     safe="$(sanitize_account "$account")"
@@ -152,6 +158,8 @@ run_one() {
         args+=( --pipemess "$filter_command" )
     fi
 
+    printf '[START] %s\n' "$account"
+
     {
         echo "============================================================"
         echo " OrangeBox - IMAPSync"
@@ -161,36 +169,69 @@ run_one() {
         echo " Inicio : $(date '+%Y-%m-%d %H:%M:%S')"
         echo "============================================================"
         echo
-        "$IMAPSYNC" "${args[@]}"
+    } >"$account_log"
+
+    if "$IMAPSYNC" "${args[@]}" >>"$account_log" 2>&1; then
+        rc=0
+    else
         rc=$?
+    fi
+
+    {
         echo
-        echo "Return code: $rc"
-        echo "Fin        : $(date '+%Y-%m-%d %H:%M:%S')"
-        exit "$rc"
-    } >"$account_log" 2>&1
+        echo "============================================================"
+        echo " Return : $rc"
+        echo " Fin    : $(date '+%Y-%m-%d %H:%M:%S')"
+        echo " Log    : $account_log"
+        echo "============================================================"
+    } >>"$account_log"
+
+    if (( rc == 0 )); then
+        printf '[OK]    %s\n' "$account"
+    else
+        printf '[ERROR] %s (rc=%s) -> %s\n' "$account" "$rc" "$account_log"
+    fi
+
+    return "$rc"
 }
+
+mapfile -t ACCOUNTS < <(
+    sed 's/#.*$//' "$USERS_FILE" |
+    awk 'NF { gsub(/^[[:space:]]+|[[:space:]]+$/, "", $0); print }' |
+    awk '!seen[$0]++'
+)
+
+(( ${#ACCOUNTS[@]} > 0 )) || {
+    echo "ERROR: no hay cuentas válidas en $USERS_FILE." >&2
+    exit 1
+}
+
+CLEAN_USERS="$(mktemp "$LOG_DIR/users.XXXXXX")"
+trap 'rm -f "$CLEAN_USERS"' EXIT
+printf '%s\n' "${ACCOUNTS[@]}" >"$CLEAN_USERS"
 
 echo "============================================================"
 echo " OrangeBox - IMAPSync paralelo"
 echo "============================================================"
-echo "Paralelismo : $PARALLEL"
-echo "Origen      : $SOURCE_HOST:$SOURCE_PORT"
-echo "Destino     : $TARGET_HOST:$TARGET_PORT"
+echo "Cuentas    : ${#ACCOUNTS[@]}"
+echo "Paralelo   : $PARALLEL"
+echo "Origen     : $SOURCE_HOST:$SOURCE_PORT"
+echo "Destino    : $TARGET_HOST:$TARGET_PORT"
 if (( FILTER == 1 )); then
-    echo "Filtro      : attachments > $THRESHOLD_MIB MiB"
+    echo "Filtro     : attachments > $THRESHOLD_MIB MiB"
 else
-    echo "Filtro      : DESACTIVADO"
+    echo "Filtro     : DESACTIVADO"
 fi
-echo "Logs        : $LOG_DIR"
+echo "Logs       : $LOG_DIR"
 echo "============================================================"
 echo
 
 export SOURCE_HOST TARGET_HOST SOURCE_ADMIN TARGET_ADMIN
-export SOURCE_PORT TARGET_PORT IMAPSYNC PYTHON3 FILTER_SCRIPT
-export LOG_DIR THRESHOLD_MIB FILTER
+export SOURCE_PORT TARGET_PORT IMAPSYNC PYTHON3 FILTER_SCRIPT LOG_DIR THRESHOLD_MIB FILTER
 export -f sanitize_account run_one
+export IMAPSYNC_PASSWORD1 IMAPSYNC_PASSWORD2
 
-parallel --will-cite     --max-procs "$PARALLEL"     --delay "$DELAY"     --line-buffer     --tagstring '[{#}] {1}'     'grep -qE "^[[:space:]]*(#|$)" <<< "{1}" || run_one "{1}"'     :::: "$USERS_FILE"
+parallel --will-cite     --max-procs "$PARALLEL"     --delay "$DELAY"     --line-buffer     --tagstring '[{#}]'     bash -c 'run_one "$1"' _ {}     :::: "$CLEAN_USERS"
 
 echo
 echo "============================================================"
