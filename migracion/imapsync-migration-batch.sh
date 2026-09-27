@@ -50,14 +50,9 @@ La autenticación usa las cuentas admin de Zimbra:
   --user1 cuenta --authuser1 admin
   --user2 cuenta --authuser2 admin
 
-Las passwords NO se solicitan por consola.
-Deben estar definidas en el entorno mediante:
-  SOURCE_ADMIN_PASSWORD
-  TARGET_ADMIN_PASSWORD
-
-También se aceptan, por compatibilidad:
-  IMAPSYNC_PASSWORD1
-  IMAPSYNC_PASSWORD2
+Las passwords se configuran directamente en las variables
+SOURCE_ADMIN_PASSWORD y TARGET_ADMIN_PASSWORD.
+El script no solicita passwords por consola.
 USAGE
 }
 
@@ -98,15 +93,15 @@ SOURCE_PORT=993
 # Puerto IMAPS del servidor de destino.
 TARGET_PORT=993
 
-# Password del usuario administrativo del Zimbra de origen.
-# DEBE definirse mediante entorno/configuración externa; nunca se guarda aquí.
-# También acepta IMAPSYNC_PASSWORD1 por compatibilidad con el script anterior.
-SOURCE_ADMIN_PASSWORD="${SOURCE_ADMIN_PASSWORD:-${IMAPSYNC_PASSWORD1:-}}"
+# Password de la cuenta administrativa de Zimbra en el servidor de origen.
+# Esta variable debe contener la password utilizada por IMAPSync para --authuser1.
+# IMPORTANTE: no subir una password real a GitHub.
+SOURCE_ADMIN_PASSWORD=""
 
-# Password del usuario administrativo del Zimbra de destino.
-# DEBE definirse mediante entorno/configuración externa; nunca se guarda aquí.
-# También acepta IMAPSYNC_PASSWORD2 por compatibilidad con el script anterior.
-TARGET_ADMIN_PASSWORD="${TARGET_ADMIN_PASSWORD:-${IMAPSYNC_PASSWORD2:-}}"
+# Password de la cuenta administrativa de Zimbra en el servidor de destino.
+# Esta variable debe contener la password utilizada por IMAPSync para --authuser2.
+# IMPORTANTE: no subir una password real a GitHub.
+TARGET_ADMIN_PASSWORD=""
 
 # Procesamiento de parámetros de línea de comandos.
 while [[ $# -gt 0 ]]; do
