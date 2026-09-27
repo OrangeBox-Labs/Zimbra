@@ -22,6 +22,9 @@ set -euo pipefail
 
 # Directorio donde está ubicado este script y donde vive el filtro MIME.
 BASE_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+# Ruta al ejecutable de IMAPSync.
+# Si IMAPSYNC no está definida, se intenta localizarlo mediante PATH.
 IMAPSYNC="${IMAPSYNC:-$(command -v imapsync || true)}"
 # Directorio de logs de la migración paralela.
 LOG_DIR="$BASE_DIR/logs/imapsync-batch"
@@ -47,7 +50,12 @@ La autenticación usa las cuentas admin de Zimbra:
   --user1 cuenta --authuser1 admin
   --user2 cuenta --authuser2 admin
 
-Las passwords se solicitan una vez y se entregan mediante:
+Las passwords NO se solicitan por consola.
+Deben estar definidas en el entorno mediante:
+  SOURCE_ADMIN_PASSWORD
+  TARGET_ADMIN_PASSWORD
+
+También se aceptan, por compatibilidad:
   IMAPSYNC_PASSWORD1
   IMAPSYNC_PASSWORD2
 USAGE
@@ -190,11 +198,22 @@ sanitize_account() {
 # Ejecutar una migración individual.
 # Cada cuenta corre en un proceso independiente de IMAPSync.
 run_one() {
+    # Cuenta que será migrada en esta ejecución de IMAPSync.
     local account="$1"
+
+    # Nombre seguro derivado de la cuenta, usado para el archivo de log.
     local safe
+
+    # Archivo de log exclusivo de esta cuenta.
     local account_log
+
+    # Comando externo que recibirá cada mensaje mediante --pipemess.
     local filter_command
+
+    # Código de retorno de IMAPSync.
     local rc
+
+    # Arreglo con todos los argumentos que se pasan a IMAPSync.
     local -a args
 
     safe="$(sanitize_account "$account")"
@@ -225,7 +244,12 @@ run_one() {
         # IMAPSync enviará cada mensaje RFC822 por STDIN al filtro MIME.
         # El filtro devuelve por STDOUT el mismo mensaje, salvo los attachments
         # que superen THRESHOLD_MIB, que son eliminados.
-        filter_command="$(printf '%q ' "$PYTHON3" "$FILTER_SCRIPT"             --threshold-mib "$THRESHOLD_MIB"             --log "$LOG_DIR/large-attachments.csv")"
+        filter_command="$(printf '%q ' \
+            "$PYTHON3" \
+            "$FILTER_SCRIPT" \
+            --threshold-mib "$THRESHOLD_MIB" \
+            --log "$LOG_DIR/large-attachments.csv"\
+        )"
         filter_command="${filter_command% }"
         args+=( --pipemess "$filter_command" )
     fi
@@ -272,6 +296,7 @@ run_one() {
 #   - elimina líneas vacías;
 #   - recorta espacios;
 #   - elimina duplicados.
+# Array final de cuentas que serán migradas.
 mapfile -t ACCOUNTS < <(
     sed 's/#.*$//' "$USERS_FILE" |
     awk 'NF { gsub(/^[[:space:]]+|[[:space:]]+$/, "", $0); print }' |
@@ -312,7 +337,17 @@ export SOURCE_PORT TARGET_PORT IMAPSYNC PYTHON3 FILTER_SCRIPT LOG_DIR THRESHOLD_
 export -f sanitize_account run_one
 export IMAPSYNC_PASSWORD1 IMAPSYNC_PASSWORD2
 
-parallel --will-cite     --max-procs "$PARALLEL"     --delay "$DELAY"     --line-buffer     --tagstring '[{#}]'     bash -c 'run_one "$1"' _ {}     :::: "$CLEAN_USERS"
+# Lanzar las migraciones concurrentes.
+# --max-procs limita la cantidad de buzones procesados simultáneamente.
+# --delay evita iniciar todos los procesos exactamente al mismo tiempo.
+# --line-buffer mantiene la salida de cada proceso legible.
+parallel --will-cite \
+    --max-procs "$PARALLEL" \
+    --delay "$DELAY" \
+    --line-buffer \
+    --tagstring '[{#}]' \
+    bash -c 'run_one "$1"' _ {} \
+    :::: "$CLEAN_USERS"
 
 echo
 echo "============================================================"
