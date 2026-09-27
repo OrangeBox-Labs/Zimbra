@@ -64,15 +64,36 @@ La intención es evitar copiar silenciosamente un mensaje transformado de forma 
 
 ## Ejecución
 
-```bash
-export SOURCE_PASSWORD='password-origen'
-export TARGET_PASSWORD='password-destino'
+### Batch paralelo
 
-./imapsync-migration.sh \
-  -s zimbra-viejo.example.cl \
-  -t zimbra-nuevo.example.cl \
-  -u usuario@example.cl
+Configura en `imapsync-migration-batch.sh` las variables de conexión y las passwords administrativas:
+
+```bash
+SOURCE_HOST="zimbra-viejo.example.cl"
+TARGET_HOST="zimbra-nuevo.example.cl"
+SOURCE_ADMIN="admin@example.cl"
+SOURCE_ADMIN_PASSWORD="password-origen"
+TARGET_ADMIN="admin@example.cl"
+TARGET_ADMIN_PASSWORD="password-destino"
+USERS_FILE="/root/imapsync-users.txt"
+PARALLEL=8
+THRESHOLD_MIB=5
 ```
+
+El batch no solicita passwords por consola. Internamente las entrega a IMAPSync mediante `IMAPSYNC_PASSWORD1` y `IMAPSYNC_PASSWORD2` para utilizar la autenticación administrativa de Zimbra.
+
+Luego ejecuta:
+
+```bash
+./imapsync-migration-batch.sh \
+  -p 1
+```
+
+Para una ejecución controlada desde la línea de comandos también pueden sobrescribirse los parámetros soportados por el script, por ejemplo `-s`, `-t`, `-a`, `-b` y `-f`.
+
+### Migración individual
+
+El script `imapsync-migration.sh` mantiene su flujo independiente y actualmente utiliza autenticación directa de la cuenta mediante `SOURCE_PASSWORD` y `TARGET_PASSWORD`.
 
 El umbral predeterminado es 5 MiB:
 
@@ -120,4 +141,4 @@ La eliminación se hace **antes de entregar el mensaje al Zimbra nuevo**, no des
 
 El tráfico entre ambos servidores no se utiliza como criterio de descarte. La red entre Zimbra viejo y nuevo puede transportar temporalmente el mensaje completo; la política determina qué contenido termina persistiendo en el destino.
 
-Las credenciales se proporcionan por variables de entorno o por prompt interactivo; no deben guardarse en el repositorio.
+El batch paralelo utiliza las variables `SOURCE_ADMIN_PASSWORD` y `TARGET_ADMIN_PASSWORD` definidas en el propio script y no solicita credenciales por consola. Para mantener las credenciales fuera de Git, configura esos valores solamente en la copia local del servidor donde ejecutarás la migración y no hagas commit de las passwords reales.
