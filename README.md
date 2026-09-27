@@ -8,75 +8,48 @@
 
 ## Zimbra: migración, administración y herramientas de infraestructura
 
-Repositorio técnico de **OrangeBox IT Services** para herramientas reutilizables de **Zimbra Collaboration Server**, especialmente en entornos Linux y migraciones de correo entre versiones.
+Repositorio técnico de **OrangeBox IT Services** para herramientas reutilizables de **Zimbra Collaboration Server**, especialmente en entornos Linux y migraciones de correo.
 
-Aquí construimos scripts para problemas reales de administración de correo: **migración de Zimbra 8.8.15 a Zimbra 10.x, exportación y restore de configuración, cuentas, passwords, aliases, forwarding, Distribution Lists, IMAPSync, backup, monitoreo y seguridad**.
+El proyecto reúne scripts y procedimientos para **Zimbra 8.8.15, Zimbra 10.x, migración de correo, restore, aliases, forwarding, Distribution Lists, IMAPSync, certificados TLS, DKIM, troubleshooting y administración Linux**.
 
-Las herramientas están pensadas para administradores de sistemas, ingenieros Linux y equipos de infraestructura que necesitan procedimientos reproducibles y fáciles de auditar.
-
-## Estructura del proyecto
+## Estructura
 
 ```text
 .
-├── migracion/       # Migración Zimbra, exportación, restore e imapsync
-├── backup/          # Backup y exportación futura
-├── operacion/       # Administración y mantenimiento
-├── monitoreo/       # Observabilidad, métricas y alertas
-├── seguridad/       # Seguridad, auditoría y hardening
-├── integracion/     # Integraciones con otros sistemas
-└── docs/            # Documentación transversal
+├── migracion/       # Migración completa de plataformas y buzones
+├── tools/           # Herramientas y guías, agrupadas por tarea
+│   ├── administracion/
+│   ├── cuentas/
+│   ├── correo/
+│   ├── seguridad/
+│   ├── certificados/
+│   ├── troubleshooting/
+│   └── instalacion/
+└── docs/            # Arquitectura y contribución
 ```
+
+## Regla simple
+
+Cada herramienta ejecutable mantiene su script y su documentación juntos:
+
+```text
+tools/cuentas/reporte-uso-cuentas.sh
+tools/cuentas/reporte-uso-cuentas.md
+```
+
+Así no tienes que buscar una guía en otro directorio para entender un script.
 
 ## Migración Zimbra
 
-### zimbra-migration-export.sh
+La familia `migracion/` contiene el exportador de configuración, generación automática de `restore.sh` e integración con `imapsync`.
 
-Se ejecuta en el **Zimbra origen** para rescatar configuración y generar un bundle de migración con un `restore.sh` autocontenido.
-
-El proceso está orientado a una reconstrucción limpia en un **servidor Zimbra nuevo**, evitando depender de identificadores internos del servidor anterior.
-
-### restore.sh
-
-El `restore.sh` es generado automáticamente por el exportador y prioriza la información funcional de correo:
-
-- dominios
-- cuentas
-- passwords
-- atributos básicos portables
-- cuotas
-- aliases
-- forwarding
-- Distribution Lists y miembros
-
-El forwarding multivaluado mediante `zimbraMailForwardingAddress` se conserva correctamente, incluyendo múltiples destinos.
-
-Configuraciones adicionales como COS, firmas, identidades, DataSources, grants y otros atributos quedan disponibles en el bundle para revisión y futuras herramientas de restore específico.
-
-### imapsync-migration.sh
-
-Herramienta para migrar el contenido de los buzones mediante **IMAPSync / imapsync**, separando la migración de datos de la reconstrucción de la configuración Zimbra.
-
-## Casos de uso
-
-- Migración Zimbra 8.8.15 → Zimbra 10.x
-- Cambio de servidor Zimbra
-- Reconstrucción de una plataforma de correo
-- Rescate de configuración antes de una migración
-- Migración de buzones con imapsync
-- Recuperación de aliases y forwarding
-- Recuperación de Distribution Lists
-- Automatización de tareas de administración Zimbra
-- Futuras herramientas de backup, monitoreo y seguridad
-
-## Compatibilidad
-
-La familia de migración fue desarrollada a partir de escenarios **Zimbra 8.8.15 → Zimbra 10.x**. La compatibilidad exacta debe verificarse para cada combinación de versiones, distribución Linux y arquitectura antes de una migración productiva.
+El restore base prioriza dominios, cuentas, passwords, aliases, forwarding y Distribution Lists. El forwarding multivaluado mediante `zimbraMailForwardingAddress` se conserva incluyendo múltiples destinos.
 
 ## Seguridad
 
-Los bundles generados por las herramientas pueden contener información sensible, incluidos hashes LDAP, configuración interna, nombres de servidores y datos de clientes.
+Los bundles de migración pueden contener hashes LDAP, configuración interna y datos de clientes.
 
-**Nunca publiques bundles reales, `passwords.ldif`, exports, logs de migración o datos de clientes en este repositorio.**
+**Nunca publiques bundles, `passwords.ldif`, exports, logs reales ni datos de producción.**
 
 ## Filosofía OrangeBox
 
@@ -89,7 +62,3 @@ Herramientas pequeñas, reproducibles y auditables para Linux, correo empresaria
 Enterprise Linux · Zimbra · VMware · Monitoring · Security · Infrastructure
 
 https://www.orangebox.cl/
-
-### Keywords
-
-Zimbra, Zimbra Collaboration, Zimbra Server, Zimbra 8, Zimbra 8.8.15, Zimbra 10, Zimbra migration, Zimbra backup, Zimbra restore, Zimbra administration, imapsync, IMAP migration, email server, mail server, Linux mail server, LDAP, aliases, email forwarding, distribution lists, mail infrastructure, enterprise email, correo empresarial, migración de correo, OrangeBox.

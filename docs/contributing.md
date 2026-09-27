@@ -1,12 +1,21 @@
 # Contribuir
 
-Antes de publicar una herramienta:
+## Convención de herramientas
 
-- Ejecutar `bash -n` sobre los scripts Bash.
-- No incluir credenciales, hashes, dumps LDAP ni exports reales.
-- Usar variables configurables y ejemplos genéricos.
-- Documentar versiones de Zimbra probadas.
-- Explicar qué modifica y qué no modifica cada herramienta.
-- Mantener la documentación en español.
+Cada herramienta ejecutable debe tener su documentación al lado:
 
-Para cambios de infraestructura productiva, probar primero en laboratorio o snapshot.
+```text
+herramienta.sh
+herramienta.md
+```
+
+El Markdown debe explicar como mínimo: objetivo, contexto, requisitos, uso, verificación y precauciones.
+
+## Calidad
+
+- Ejecutar `bash -n` sobre todo script Bash.
+- Probar en laboratorio, VM o snapshot antes de producción.
+- No incluir credenciales, hashes, dumps LDAP, logs reales ni datos de clientes.
+- Reemplazar dominios, correos e IP reales por valores genéricos.
+- Marcar como **Legacy** todo procedimiento que dependa de una versión antigua.
+- Usar mensajes de commit en español y describir el cambio concreto.
