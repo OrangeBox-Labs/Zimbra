@@ -55,7 +55,8 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-[[ -n "$SOURCE_HOST" && -n "$TARGET_HOST" && -n "$SOURCE_ADMIN" && -n "$TARGET_ADMIN" && -n "$USERS_FILE" ]] || {
+[[ -n "$SOURCE_HOST" && -n "$TARGET_HOST" && -n "$SOURCE_ADMIN" &&
+   -n "$TARGET_ADMIN" && -n "$USERS_FILE" ]] || {
     echo "ERROR: faltan parámetros obligatorios." >&2
     usage
     exit 1
@@ -63,7 +64,6 @@ done
 
 command -v parallel >/dev/null 2>&1 || {
     echo "ERROR: GNU Parallel no está instalado." >&2
-    echo "Instálalo con el gestor de paquetes de la distribución." >&2
     exit 1
 }
 
@@ -98,51 +98,99 @@ if (( FILTER == 1 )); then
 fi
 
 mkdir -p "$LOG_DIR"
-export IMAPSYNC_PASSWORD1="${IMAPSYNC_PASSWORD1:-}"
-export IMAPSYNC_PASSWORD2="${IMAPSYNC_PASSWORD2:-}"
-export ORANGEBOX_ATTACHMENT_THRESHOLD_MIB="$THRESHOLD_MIB"
-export ORANGEBOX_IMAPSYNC_FILTER_LOG="$LOG_DIR/large-attachments.csv"
 
-if [[ -z "$IMAPSYNC_PASSWORD1" ]]; then
+if [[ -z "${IMAPSYNC_PASSWORD1:-}" ]]; then
     read -r -s -p "Password admin origen [$SOURCE_ADMIN]: " IMAPSYNC_PASSWORD1
     echo
     export IMAPSYNC_PASSWORD1
 fi
 
-if [[ -z "$IMAPSYNC_PASSWORD2" ]]; then
+if [[ -z "${IMAPSYNC_PASSWORD2:-}" ]]; then
     read -r -s -p "Password admin destino [$TARGET_ADMIN]: " IMAPSYNC_PASSWORD2
     echo
     export IMAPSYNC_PASSWORD2
 fi
 
-if (( FILTER == 1 )); then
-    FILTER_ARGS=(--pipemess "$PYTHON3 $FILTER_SCRIPT")
-else
-    FILTER_ARGS=()
-fi
+sanitize_account() {
+    printf '%s' "$1" | tr '@/:[:space:]' '____'
+}
+
+run_one() {
+    local account="$1"
+    local safe
+    local account_log
+    local filter_command
+    local -a args
+
+    safe="$(sanitize_account "$account")"
+    account_log="$LOG_DIR/$safe.log"
+
+    args=(
+        --host1 "$SOURCE_HOST"
+        --port1 "$SOURCE_PORT"
+        --ssl1
+        --user1 "$account"
+        --authuser1 "$SOURCE_ADMIN"
+        --host2 "$TARGET_HOST"
+        --port2 "$TARGET_PORT"
+        --ssl2
+        --user2 "$account"
+        --authuser2 "$TARGET_ADMIN"
+        --automap
+        --usecache
+        --syncinternaldates
+        --subscribe
+        --nofoldersizes
+        --skipsize
+        --errorsmax 1000
+        --logdir "$LOG_DIR"
+    )
+
+    if (( FILTER == 1 )); then
+        filter_command="$(printf '%q ' "$PYTHON3" "$FILTER_SCRIPT")"
+        filter_command="${filter_command% }"
+        args+=( --pipemess "$filter_command" )
+    fi
+
+    {
+        echo "============================================================"
+        echo " OrangeBox - IMAPSync"
+        echo " Cuenta : $account"
+        echo " Origen : $SOURCE_HOST:$SOURCE_PORT"
+        echo " Destino: $TARGET_HOST:$TARGET_PORT"
+        echo " Inicio : $(date '+%Y-%m-%d %H:%M:%S')"
+        echo "============================================================"
+        echo
+        "$IMAPSYNC" "${args[@]}"
+        rc=$?
+        echo
+        echo "Return code: $rc"
+        echo "Fin        : $(date '+%Y-%m-%d %H:%M:%S')"
+        exit "$rc"
+    } >"$account_log" 2>&1
+}
 
 echo "============================================================"
 echo " OrangeBox - IMAPSync paralelo"
 echo "============================================================"
-echo "Cuentas    : $(grep -vE '^[[:space:]]*(#|$)' "$USERS_FILE" | wc -l)"
-echo "Paralelo   : $PARALLEL"
-echo "Origen     : $SOURCE_HOST:$SOURCE_PORT"
-echo "Destino    : $TARGET_HOST:$TARGET_PORT"
+echo "Paralelismo : $PARALLEL"
+echo "Origen      : $SOURCE_HOST:$SOURCE_PORT"
+echo "Destino     : $TARGET_HOST:$TARGET_PORT"
 if (( FILTER == 1 )); then
-    echo "Filtro     : attachments > $THRESHOLD_MIB MiB"
+    echo "Filtro      : attachments > $THRESHOLD_MIB MiB"
 else
-    echo "Filtro     : DESACTIVADO"
+    echo "Filtro      : DESACTIVADO"
 fi
-echo "Logs       : $LOG_DIR"
+echo "Logs        : $LOG_DIR"
 echo "============================================================"
 echo
 
-export SOURCE_HOST TARGET_HOST SOURCE_ADMIN TARGET_ADMIN SOURCE_PORT TARGET_PORT
-export IMAPSYNC FILTER_SCRIPT PYTHON3 LOG_DIR
-export FILTER_ARGS
+export SOURCE_HOST TARGET_HOST SOURCE_ADMIN TARGET_ADMIN
+export SOURCE_PORT TARGET_PORT IMAPSYNC PYTHON3 FILTER_SCRIPT
+export LOG_DIR THRESHOLD_MIB FILTER
+export -f sanitize_account run_one
 
-parallel --will-cite --max-procs "$PARALLEL" --delay "$DELAY" --line-buffer     --tagstring '[{#}] {1}'     'grep -qE "^[[:space:]]*(#|$)" <<< "{1}" && exit 0
-     "$IMAPSYNC"        --host1 "$SOURCE_HOST" --port1 "$SOURCE_PORT" --ssl1        --user1 "{1}" --authuser1 "$SOURCE_ADMIN"        --host2 "$TARGET_HOST" --port2 "$TARGET_PORT" --ssl2        --user2 "{1}" --authuser2 "$TARGET_ADMIN"        --automap --usecache --syncinternaldates --subscribe        --nofoldersizes --skipsize --errorsmax 1000        --logdir "$LOG_DIR"        "${FILTER_ARGS[@]}"'     :::: "$USERS_FILE"
+parallel --will-cite     --max-procs "$PARALLEL"     --delay "$DELAY"     --line-buffer     --tagstring '[{#}] {1}'     'grep -qE "^[[:space:]]*(#|$)" <<< "{1}" || run_one "{1}"'     :::: "$USERS_FILE"
 
 echo
 echo "============================================================"
