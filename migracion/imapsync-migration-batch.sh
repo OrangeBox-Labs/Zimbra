@@ -41,9 +41,10 @@ Opciones:
   -b ACCOUNT    Admin IMAP destino
   -f FILE       Una cuenta por línea
   -p N          Cuentas simultáneas (default: 8)
-  --threshold-mib N  Umbral de attachment en MiB (default: 5)
-  --no-attachment-filter  Desactiva filtro MIME
-  --delay SEC   Espera entre inicios (default: 1)
+  --threshold-mib N         Umbral de attachment en MiB (default: 5)
+  --inline-threshold-mib N  Umbral de imagen inline/CID en MiB (default: 1)
+  --no-attachment-filter    Desactiva filtro MIME
+  --delay SEC               Espera entre inicios (default: 1)
   -h, --help    Ayuda
 
 La autenticación usa las cuentas admin de Zimbra:
@@ -77,9 +78,11 @@ USERS_FILE=""
 # 8 es el valor por defecto y se puede cambiar con -p.
 PARALLEL=8
 
-# Umbral de tamaño de attachment en MiB.
-# Todo attachment estrictamente mayor a este valor será eliminado por el filtro MIME.
+# Umbral general para attachments MIME.
 THRESHOLD_MIB=5
+
+# Umbral independiente para imágenes inline/CID, principalmente firmas HTML.
+INLINE_THRESHOLD_MIB=1
 
 # Indica si el filtro MIME de attachments está activo: 1=activo, 0=desactivado.
 FILTER=1
@@ -113,6 +116,7 @@ while [[ $# -gt 0 ]]; do
         -f) USERS_FILE="$2"; shift 2 ;;
         -p) PARALLEL="$2"; shift 2 ;;
         --threshold-mib) THRESHOLD_MIB="$2"; shift 2 ;;
+        --inline-threshold-mib) INLINE_THRESHOLD_MIB="$2"; shift 2 ;;
         --no-attachment-filter) FILTER=0; shift ;;
         --delay) DELAY="$2"; shift 2 ;;
         -h|--help) usage; exit 0 ;;
@@ -243,6 +247,7 @@ run_one() {
             "$PYTHON3" \
             "$FILTER_SCRIPT" \
             --threshold-mib "$THRESHOLD_MIB" \
+            --inline-threshold-mib "$INLINE_THRESHOLD_MIB" \
             --log "$LOG_DIR/large-attachments.csv"\
         )"
         filter_command="${filter_command% }"
@@ -318,6 +323,7 @@ echo "Origen     : $SOURCE_HOST:$SOURCE_PORT"
 echo "Destino    : $TARGET_HOST:$TARGET_PORT"
 if (( FILTER == 1 )); then
     echo "Filtro     : attachments > $THRESHOLD_MIB MiB"
+    echo "Inline/CID  : imágenes > $INLINE_THRESHOLD_MIB MiB"
 else
     echo "Filtro     : DESACTIVADO"
 fi
@@ -328,7 +334,8 @@ echo
 # Exportar variables y funciones para que GNU Parallel pueda ejecutar run_one
 # dentro de los procesos hijos.
 export SOURCE_HOST TARGET_HOST SOURCE_ADMIN TARGET_ADMIN
-export SOURCE_PORT TARGET_PORT IMAPSYNC PYTHON3 FILTER_SCRIPT LOG_DIR THRESHOLD_MIB FILTER
+export SOURCE_PORT TARGET_PORT IMAPSYNC PYTHON3 FILTER_SCRIPT LOG_DIR
+export THRESHOLD_MIB INLINE_THRESHOLD_MIB FILTER
 export -f sanitize_account run_one
 export IMAPSYNC_PASSWORD1 IMAPSYNC_PASSWORD2
 
