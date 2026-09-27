@@ -1,0 +1,150 @@
+#!/bin/bash
+set -euo pipefail
+
+BASE_DIR="$(cd "$(dirname "$0")" && pwd)"
+IMAPSYNC="${IMAPSYNC:-$(command -v imapsync || true)}"
+LOG_DIR="$BASE_DIR/logs/imapsync-batch"
+
+usage() {
+    cat <<'USAGE'
+Uso:
+  $0 -s SOURCE_HOST -t TARGET_HOST -a SOURCE_ADMIN -b TARGET_ADMIN -f USERS_FILE [opciones]
+
+Opciones:
+  -s HOST       Host IMAP origen
+  -t HOST       Host IMAP destino
+  -a ACCOUNT    Admin IMAP origen
+  -b ACCOUNT    Admin IMAP destino
+  -f FILE       Una cuenta por línea
+  -p N          Cuentas simultáneas (default: 8)
+  --threshold-mib N  Umbral de attachment en MiB (default: 5)
+  --no-attachment-filter  Desactiva filtro MIME
+  --delay SEC   Espera entre inicios (default: 1)
+  -h, --help    Ayuda
+
+Las passwords se solicitan una vez y se entregan a imapsync mediante
+IMAPSYNC_PASSWORD1 e IMAPSYNC_PASSWORD2.
+USAGE
+}
+
+SOURCE_HOST=""
+TARGET_HOST=""
+SOURCE_ADMIN=""
+TARGET_ADMIN=""
+USERS_FILE=""
+PARALLEL=8
+THRESHOLD_MIB=5
+FILTER=1
+DELAY=1
+SOURCE_PORT=993
+TARGET_PORT=993
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -s) SOURCE_HOST="$2"; shift 2 ;;
+        -t) TARGET_HOST="$2"; shift 2 ;;
+        -a) SOURCE_ADMIN="$2"; shift 2 ;;
+        -b) TARGET_ADMIN="$2"; shift 2 ;;
+        -f) USERS_FILE="$2"; shift 2 ;;
+        -p) PARALLEL="$2"; shift 2 ;;
+        --threshold-mib) THRESHOLD_MIB="$2"; shift 2 ;;
+        --no-attachment-filter) FILTER=0; shift ;;
+        --delay) DELAY="$2"; shift 2 ;;
+        -h|--help) usage; exit 0 ;;
+        *) echo "ERROR: opción desconocida: $1" >&2; usage; exit 1 ;;
+    esac
+done
+
+[[ -n "$SOURCE_HOST" && -n "$TARGET_HOST" && -n "$SOURCE_ADMIN" && -n "$TARGET_ADMIN" && -n "$USERS_FILE" ]] || {
+    echo "ERROR: faltan parámetros obligatorios." >&2
+    usage
+    exit 1
+}
+
+command -v parallel >/dev/null 2>&1 || {
+    echo "ERROR: GNU Parallel no está instalado." >&2
+    echo "Instálalo con el gestor de paquetes de la distribución." >&2
+    exit 1
+}
+
+[[ -x "$IMAPSYNC" ]] || {
+    echo "ERROR: imapsync no está instalado o no está en PATH." >&2
+    exit 1
+}
+
+[[ -r "$USERS_FILE" ]] || {
+    echo "ERROR: no se puede leer $USERS_FILE." >&2
+    exit 1
+}
+
+[[ "$PARALLEL" =~ ^[1-9][0-9]*$ ]] || {
+    echo "ERROR: -p debe ser entero positivo." >&2
+    exit 1
+}
+
+PYTHON3="${PYTHON3:-python3}"
+FILTER_SCRIPT="$BASE_DIR/imapsync-strip-large-attachments.py"
+
+if (( FILTER == 1 )); then
+    command -v "$PYTHON3" >/dev/null 2>&1 || {
+        echo "ERROR: $PYTHON3 no está instalado." >&2
+        exit 1
+    }
+    [[ -r "$FILTER_SCRIPT" ]] || {
+        echo "ERROR: no existe $FILTER_SCRIPT." >&2
+        exit 1
+    }
+    "$PYTHON3" -m py_compile "$FILTER_SCRIPT"
+fi
+
+mkdir -p "$LOG_DIR"
+export IMAPSYNC_PASSWORD1="${IMAPSYNC_PASSWORD1:-}"
+export IMAPSYNC_PASSWORD2="${IMAPSYNC_PASSWORD2:-}"
+export ORANGEBOX_ATTACHMENT_THRESHOLD_MIB="$THRESHOLD_MIB"
+export ORANGEBOX_IMAPSYNC_FILTER_LOG="$LOG_DIR/large-attachments.csv"
+
+if [[ -z "$IMAPSYNC_PASSWORD1" ]]; then
+    read -r -s -p "Password admin origen [$SOURCE_ADMIN]: " IMAPSYNC_PASSWORD1
+    echo
+    export IMAPSYNC_PASSWORD1
+fi
+
+if [[ -z "$IMAPSYNC_PASSWORD2" ]]; then
+    read -r -s -p "Password admin destino [$TARGET_ADMIN]: " IMAPSYNC_PASSWORD2
+    echo
+    export IMAPSYNC_PASSWORD2
+fi
+
+if (( FILTER == 1 )); then
+    FILTER_ARGS=(--pipemess "$PYTHON3 $FILTER_SCRIPT")
+else
+    FILTER_ARGS=()
+fi
+
+echo "============================================================"
+echo " OrangeBox - IMAPSync paralelo"
+echo "============================================================"
+echo "Cuentas    : $(grep -vE '^[[:space:]]*(#|$)' "$USERS_FILE" | wc -l)"
+echo "Paralelo   : $PARALLEL"
+echo "Origen     : $SOURCE_HOST:$SOURCE_PORT"
+echo "Destino    : $TARGET_HOST:$TARGET_PORT"
+if (( FILTER == 1 )); then
+    echo "Filtro     : attachments > $THRESHOLD_MIB MiB"
+else
+    echo "Filtro     : DESACTIVADO"
+fi
+echo "Logs       : $LOG_DIR"
+echo "============================================================"
+echo
+
+export SOURCE_HOST TARGET_HOST SOURCE_ADMIN TARGET_ADMIN SOURCE_PORT TARGET_PORT
+export IMAPSYNC FILTER_SCRIPT PYTHON3 LOG_DIR
+export FILTER_ARGS
+
+parallel --will-cite --max-procs "$PARALLEL" --delay "$DELAY" --line-buffer     --tagstring '[{#}] {1}'     'grep -qE "^[[:space:]]*(#|$)" <<< "{1}" && exit 0
+     "$IMAPSYNC"        --host1 "$SOURCE_HOST" --port1 "$SOURCE_PORT" --ssl1        --user1 "{1}" --authuser1 "$SOURCE_ADMIN"        --host2 "$TARGET_HOST" --port2 "$TARGET_PORT" --ssl2        --user2 "{1}" --authuser2 "$TARGET_ADMIN"        --automap --usecache --syncinternaldates --subscribe        --nofoldersizes --skipsize --errorsmax 1000        --logdir "$LOG_DIR"        "${FILTER_ARGS[@]}"'     :::: "$USERS_FILE"
+
+echo
+echo "============================================================"
+echo " IMAPSync paralelo terminado"
+echo "============================================================"
