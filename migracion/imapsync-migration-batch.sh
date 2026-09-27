@@ -29,6 +29,10 @@ IMAPSYNC="${IMAPSYNC:-$(command -v imapsync || true)}"
 # Directorio de logs de la migración paralela.
 LOG_DIR="$BASE_DIR/logs/imapsync-batch"
 
+# Directorio temporal utilizado por IMAPSync para cache y archivos temporales.
+# Se puede sobrescribir mediante la variable de entorno IMAPSYNC_TMPDIR.
+IMAPSYNC_TMPDIR="${IMAPSYNC_TMPDIR:-/opt/tmp}"
+
 usage() {
     cat <<'USAGE'
 Uso:
@@ -45,6 +49,9 @@ Opciones:
   --inline-threshold-mib N  Umbral de imagen inline/CID en MiB (default: 1)
   --no-attachment-filter    Desactiva filtro MIME
   --delay SEC               Espera entre inicios (default: 1)
+
+Variable de entorno:
+  IMAPSYNC_TMPDIR            Directorio temporal de IMAPSync (default: /opt/tmp)
   -h, --help    Ayuda
 
 La autenticación usa las cuentas admin de Zimbra:
@@ -126,6 +133,12 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Validar parámetros obligatorios antes de iniciar la migración.
+mkdir -p "$IMAPSYNC_TMPDIR"
+[[ -d "$IMAPSYNC_TMPDIR" && -w "$IMAPSYNC_TMPDIR" ]] || {
+    echo "ERROR: IMAPSYNC_TMPDIR no existe o no es escribible: $IMAPSYNC_TMPDIR" >&2
+    exit 1
+}
+
 [[ -n "$SOURCE_HOST" && -n "$TARGET_HOST" && -n "$SOURCE_ADMIN" &&
    -n "$TARGET_ADMIN" && -n "$USERS_FILE" ]] || {
     echo "ERROR: faltan parámetros obligatorios." >&2
@@ -237,6 +250,7 @@ run_one() {
         --nofoldersizes
         --skipsize
         --errorsmax 1000
+        --tmpdir "$IMAPSYNC_TMPDIR"
         --logdir "$LOG_DIR"
     )
 
@@ -328,6 +342,7 @@ if (( FILTER == 1 )); then
 else
     echo "Filtro     : DESACTIVADO"
 fi
+echo "Tmp IMAPSync: $IMAPSYNC_TMPDIR"
 echo "Logs       : $LOG_DIR"
 echo "============================================================"
 echo
@@ -335,6 +350,7 @@ echo
 # Exportar variables y funciones para que GNU Parallel pueda ejecutar run_one
 # dentro de los procesos hijos.
 export SOURCE_HOST TARGET_HOST SOURCE_ADMIN TARGET_ADMIN
+export IMAPSYNC_TMPDIR
 export SOURCE_PORT TARGET_PORT IMAPSYNC PYTHON3 FILTER_SCRIPT LOG_DIR
 export THRESHOLD_MIB INLINE_THRESHOLD_MIB FILTER
 export -f sanitize_account run_one
