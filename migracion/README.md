@@ -44,7 +44,7 @@ Para una cuenta individual:
 
 Para una migración masiva se usa `imapsync-migration-batch.sh`. Ejecuta múltiples instancias independientes de IMAPSync en paralelo; el valor por defecto es **8 cuentas simultáneas** y se puede modificar con `-p`.
 
-El modo batch utiliza autenticación administrativa de Zimbra mediante `--authuser1` y `--authuser2`, por lo que no es necesario guardar las passwords individuales de cada cuenta en el archivo de usuarios. La documentación oficial de IMAPSync confirma este mecanismo para Zimbra y recomienda autenticación administrativa cuando está disponible.
+El modo batch utiliza autenticación administrativa de Zimbra mediante `--authuser1` y `--authuser2`, por lo que no es necesario guardar las passwords individuales de cada cuenta en el archivo de usuarios. Las passwords de las cuentas administrativas se configuran en las variables `SOURCE_ADMIN_PASSWORD` y `TARGET_ADMIN_PASSWORD` del script; la ejecución no solicita credenciales por consola.
 
 Archivo de cuentas:
 
@@ -125,6 +125,6 @@ El tráfico entre ambos Zimbra no se utiliza como criterio de descarte de attach
 
 ## Seguridad
 
-Las passwords se solicitan una vez y se entregan a IMAPSync mediante `IMAPSYNC_PASSWORD1` y `IMAPSYNC_PASSWORD2`, funcionalidad disponible desde IMAPSync 2.229.
+Las passwords administrativas se asignan internamente a `IMAPSYNC_PASSWORD1` y `IMAPSYNC_PASSWORD2`, que son las variables utilizadas por IMAPSync para la autenticación administrativa. El batch no solicita passwords por consola.
 
 No publiques passwords, exports, logs de migración ni bundles completos en GitHub.
