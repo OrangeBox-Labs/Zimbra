@@ -29,10 +29,6 @@ IMAPSYNC="${IMAPSYNC:-$(command -v imapsync || true)}"
 # Directorio de logs de la migración paralela.
 LOG_DIR="$BASE_DIR/logs/imapsync-batch"
 
-# Directorio temporal utilizado por IMAPSync para cache y archivos temporales.
-# Se puede sobrescribir mediante la variable de entorno IMAPSYNC_TMPDIR.
-IMAPSYNC_TMPDIR='/opt/tmp'
-
 usage() {
     cat <<'USAGE'
 Uso:
@@ -51,7 +47,6 @@ Opciones:
   --delay SEC               Espera entre inicios (default: 1)
 
 Variable de entorno:
-  IMAPSYNC_TMPDIR            Directorio temporal de IMAPSync (configurado en el script)
   -h, --help    Ayuda
 
 La autenticación usa las cuentas admin de Zimbra:
@@ -107,6 +102,7 @@ THRESHOLD_MIB=10
 
 # Umbral independiente para imágenes inline/CID, principalmente firmas HTML.
 INLINE_THRESHOLD_MIB=1
+IMAPSYNC_TMPDIR='/opt/tmp'
 
 # Indica si el filtro MIME de attachments está activo: 1=activo, 0=desactivado.
 FILTER=1
