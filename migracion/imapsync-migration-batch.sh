@@ -41,7 +41,7 @@ Opciones:
   -b ACCOUNT    Admin IMAP destino
   -f FILE       Una cuenta por línea
   -p N          Cuentas simultáneas (default: 8)
-  --threshold-mib N         Umbral de attachment en MiB (default: 5)
+  --threshold-mib N         Umbral de attachment en MiB (default: 10)
   --inline-threshold-mib N  Umbral de imagen inline/CID en MiB (default: 1)
   --no-attachment-filter    Desactiva filtro MIME
   --delay SEC               Espera entre inicios (default: 1)
@@ -96,7 +96,7 @@ USERS_FILE=""
 PARALLEL=8
 
 # Umbral general para attachments MIME.
-THRESHOLD_MIB=5
+THRESHOLD_MIB=10
 
 # Umbral independiente para imágenes inline/CID, principalmente firmas HTML.
 INLINE_THRESHOLD_MIB=1
