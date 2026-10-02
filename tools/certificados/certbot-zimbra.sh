@@ -12,7 +12,6 @@ DOMAINS=(
     "mail.example.org"
 )
 
-# Cuenta utilizada para registrar/renovar el certificado ACME.
 CERTBOT_EMAIL="admin@example.com"
 
 DOMAIN="${DOMAINS[0]}"
@@ -46,15 +45,14 @@ if [[ ! -x /usr/bin/certbot ]]; then
     exit 1
 fi
 
-if [[ -z "$CERTBOT_EMAIL" || "$CERTBOT_EMAIL" == *"example.com" ]]; then
-    echo "ERROR: debes configurar CERTBOT_EMAIL con una dirección real."
-    echo "Edita CERTBOT_EMAIL junto a DOMAINS antes de ejecutar el script."
+if [[ -z "$CERTBOT_EMAIL" ]]; then
+    echo "ERROR: CERTBOT_EMAIL está vacío."
     exit 1
 fi
 
 echo
-echo ">>> Correo ACME: $CERTBOT_EMAIL"
-echo ">>> Dominios:"
+echo ">>> Cuenta ACME: $CERTBOT_EMAIL"
+echo ">>> Dominios del certificado:"
 CERTBOT_DOMAINS=()
 for DOMAIN_NAME in "${DOMAINS[@]}"; do
     echo "    - $DOMAIN_NAME"
@@ -133,8 +131,7 @@ openssl crl2pkcs7 -nocrl -certfile "$ZIMBRA_CHAIN" |
 echo
 echo ">>> Creando backup de commercial.key..."
 mkdir -p "$BACKUP_DIR"
-cp -a "$ZIMBRA_KEY" \
-    "$BACKUP_DIR/commercial.key.$(date '+%Y%m%d-%H%M%S')"
+cp -a "$ZIMBRA_KEY" "$BACKUP_DIR/commercial.key.$(date '+%Y%m%d-%H%M%S')"
 
 echo
 echo ">>> Instalando clave privada Let's Encrypt..."
