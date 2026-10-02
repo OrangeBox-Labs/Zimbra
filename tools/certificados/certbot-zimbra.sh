@@ -12,7 +12,7 @@ DOMAINS=(
     "mail.example.org"
 )
 
-CERTBOT_EMAIL="${CERTBOT_EMAIL:-admin@example.com}"
+CERTBOT_EMAIL="${CERTBOT_EMAIL:-}"
 DOMAIN="${DOMAINS[0]}"
 DIRECTORY="/etc/letsencrypt/live/${DOMAIN}"
 ZIMBRA_DIR="/opt/zimbra/ssl/zimbra/commercial"
@@ -44,7 +44,14 @@ if [[ ! -x /usr/bin/certbot ]]; then
     exit 1
 fi
 
+if [[ -z "$CERTBOT_EMAIL" ]]; then
+    echo "ERROR: debes definir CERTBOT_EMAIL con una dirección real."
+    echo "Ejemplo: CERTBOT_EMAIL=admin@jhg.cl ./certbot-zimbra.sh"
+    exit 1
+fi
+
 echo
+echo ">>> Correo ACME: $CERTBOT_EMAIL"
 echo ">>> Dominios:"
 CERTBOT_DOMAINS=()
 for DOMAIN_NAME in "${DOMAINS[@]}"; do
@@ -61,7 +68,15 @@ fi
 
 echo
 echo ">>> Ejecutando Certbot..."
-if ! /usr/bin/certbot certonly     --expand     --standalone     -n     --agree-tos     --email "$CERTBOT_EMAIL"     --preferred-chain "ISRG Root X1"     --keep-until-expiring     "${CERTBOT_DOMAINS[@]}"
+if ! /usr/bin/certbot certonly \
+    --expand \
+    --standalone \
+    -n \
+    --agree-tos \
+    --email "$CERTBOT_EMAIL" \
+    --preferred-chain "ISRG Root X1" \
+    --keep-until-expiring \
+    "${CERTBOT_DOMAINS[@]}"
 then
     echo
     echo "ERROR: Certbot falló."
@@ -116,7 +131,8 @@ openssl crl2pkcs7 -nocrl -certfile "$ZIMBRA_CHAIN" |
 echo
 echo ">>> Creando backup de commercial.key..."
 mkdir -p "$BACKUP_DIR"
-cp -a "$ZIMBRA_KEY"     "$BACKUP_DIR/commercial.key.$(date '+%Y%m%d-%H%M%S')"
+cp -a "$ZIMBRA_KEY" \
+    "$BACKUP_DIR/commercial.key.$(date '+%Y%m%d-%H%M%S')"
 
 echo
 echo ">>> Instalando clave privada Let's Encrypt..."
@@ -127,7 +143,10 @@ chmod 640 "$ZIMBRA_KEY"
 echo
 echo ">>> Verificando certificado y clave..."
 if ! su - zimbra -c "
-    /opt/zimbra/bin/zmcertmgr verifycrt comm     '$ZIMBRA_KEY'     '$CERT'     '$ZIMBRA_CHAIN'
+    /opt/zimbra/bin/zmcertmgr verifycrt comm \
+    '$ZIMBRA_KEY' \
+    '$CERT' \
+    '$ZIMBRA_CHAIN'
 "; then
     echo
     echo "ERROR: verifycrt falló."
@@ -139,7 +158,9 @@ echo
 echo ">>> Desplegando certificado..."
 if ! su - zimbra -c "
     cd /tmp &&
-    /opt/zimbra/bin/zmcertmgr deploycrt comm     '$CERT'     '$ZIMBRA_CHAIN'
+    /opt/zimbra/bin/zmcertmgr deploycrt comm \
+    '$CERT' \
+    '$ZIMBRA_CHAIN'
 "; then
     echo
     echo "ERROR: deploycrt falló."
@@ -169,3 +190,4 @@ echo
 echo "============================================================"
 echo "$(date '+%Y-%m-%d %H:%M:%S') - Proceso terminado"
 echo "============================================================"
+echo
