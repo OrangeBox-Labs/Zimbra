@@ -21,6 +21,7 @@ ZIMBRA_KEY="${ZIMBRA_DIR}/commercial.key"
 BACKUP_DIR="${ZIMBRA_DIR}/backup"
 
 CERT="${DIRECTORY}/cert.pem"
+FULLCHAIN="${DIRECTORY}/fullchain.pem"
 CHAIN="${DIRECTORY}/chain.pem"
 PRIVKEY="${DIRECTORY}/privkey.pem"
 ZIMBRA_CHAIN="/tmp/zimbra-chain-${DOMAIN}.pem"
@@ -92,7 +93,7 @@ if ! su - zimbra -c "zmcontrol start"; then
     exit 1
 fi
 
-if [[ ! -f "$CERT" || ! -f "$CHAIN" || ! -f "$PRIVKEY" ]]; then
+if [[ ! -f "$CERT" || ! -f "$CHAIN" || ! -f "$FULLCHAIN" || ! -f "$PRIVKEY" ]]; then
     echo "ERROR: faltan archivos de Let's Encrypt."
     exit 1
 fi
@@ -111,15 +112,13 @@ openssl crl2pkcs7 -nocrl -certfile "$CHAIN" |
     openssl pkcs7 -print_certs -noout
 
 echo
-echo ">>> Preparando cadena compatible con Zimbra..."
-awk '
-/BEGIN CERTIFICATE/ { n++ }
-n <= 2 { print }
-/END CERTIFICATE/ && n == 2 { exit }
-' "$CHAIN" > "$ZIMBRA_CHAIN"
+echo ">>> Preparando cadena para Zimbra..."
+# Zimbra 10/zmcertmgr necesita una cadena que permita validar el certificado.
+# Con las cadenas actuales de Let's Encrypt, usamos la cadena completa.
+cp -f "$FULLCHAIN" "$ZIMBRA_CHAIN"
 
 if [[ ! -s "$ZIMBRA_CHAIN" ]]; then
-    echo "ERROR: no se pudo construir la cadena para Zimbra."
+    echo "ERROR: no se pudo preparar la cadena para Zimbra."
     exit 1
 fi
 
