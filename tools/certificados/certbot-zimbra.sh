@@ -12,7 +12,10 @@ DOMAINS=(
     "mail.example.org"
 )
 
-CERTBOT_EMAIL="${CERTBOT_EMAIL:-}"
+# Cuenta utilizada para registrar/renovar el certificado ACME.
+# Puede definirse desde el entorno: CERTBOT_EMAIL=admin@example.com ./certbot-zimbra.sh
+CERTBOT_EMAIL="${CERTBOT_EMAIL:-admin@example.com}"
+
 DOMAIN="${DOMAINS[0]}"
 DIRECTORY="/etc/letsencrypt/live/${DOMAIN}"
 ZIMBRA_DIR="/opt/zimbra/ssl/zimbra/commercial"
@@ -44,8 +47,8 @@ if [[ ! -x /usr/bin/certbot ]]; then
     exit 1
 fi
 
-if [[ -z "$CERTBOT_EMAIL" ]]; then
-    echo "ERROR: debes definir CERTBOT_EMAIL con una dirección real."
+if [[ -z "$CERTBOT_EMAIL" || "$CERTBOT_EMAIL" == *"example.com" ]]; then
+    echo "ERROR: debes configurar CERTBOT_EMAIL con una dirección real."
     echo "Ejemplo: CERTBOT_EMAIL=admin@jhg.cl ./certbot-zimbra.sh"
     exit 1
 fi
