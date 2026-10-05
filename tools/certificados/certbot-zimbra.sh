@@ -152,6 +152,7 @@ if [[ "$NEEDS_CERTBOT" -eq 1 ]]; then
 echo ">>> Ejecutando Certbot..."
 
     CERTBOT_EXTRA_ARGS=(
+        --cert-name "$DOMAIN"
         --key-type "$CERTIFICATE_KEY_TYPE"
         --rsa-key-size "$RSA_KEY_SIZE"
     )
