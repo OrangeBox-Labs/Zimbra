@@ -21,6 +21,11 @@ CERTBOT_EMAIL="admin@example.com"
 # Renovar solamente cuando falten menos de estos dias.
 RENEWAL_DAYS=30
 
+# Tipo de clave usado por el certificado.
+# RSA mantiene compatibilidad con clientes que no ofrecen cipher suites ECDSA.
+CERTIFICATE_KEY_TYPE="rsa"
+RSA_KEY_SIZE=2048
+
 DOMAIN="${DOMAINS[0]}"
 DIRECTORY="/etc/letsencrypt/live/${DOMAIN}"
 ZIMBRA_DIR="/opt/zimbra/ssl/zimbra/commercial"
@@ -109,12 +114,21 @@ done
 # ============================================================
 
 NEEDS_CERTBOT=1
+FORCE_CERTBOT=0
 
 if [[ -f "$CERT" ]]; then
     echo
 echo ">>> Certificado existente encontrado."
 
-    if openssl x509 -in "$CERT" -noout -checkend "$((RENEWAL_DAYS * 86400))" >/dev/null 2>&1; then
+    PUBLIC_KEY_ALGORITHM="$(openssl x509 -in "$CERT" -noout -text 2>/dev/null | \
+        awk -F': ' '/Public Key Algorithm:/ {print $2; exit}')"
+
+    if [[ "$CERTIFICATE_KEY_TYPE" == "rsa" && "$PUBLIC_KEY_ALGORITHM" != "rsaEncryption" ]]; then
+        echo ">>> El certificado actual usa $PUBLIC_KEY_ALGORITHM."
+        echo ">>> Se requiere un certificado RSA de ${RSA_KEY_SIZE} bits."
+        echo ">>> Se solicitará un nuevo certificado RSA ahora."
+        FORCE_CERTBOT=1
+    elif openssl x509 -in "$CERT" -noout -checkend "$((RENEWAL_DAYS * 86400))" >/dev/null 2>&1; then
         echo ">>> El certificado todavía es válido por más de ${RENEWAL_DAYS} días."
         echo ">>> NO se ejecutará Certbot y NO se detendrá Zimbra."
         NEEDS_CERTBOT=0
@@ -137,6 +151,21 @@ if [[ "$NEEDS_CERTBOT" -eq 1 ]]; then
     echo
 echo ">>> Ejecutando Certbot..."
 
+    CERTBOT_EXTRA_ARGS=(
+        --key-type "$CERTIFICATE_KEY_TYPE"
+        --rsa-key-size "$RSA_KEY_SIZE"
+    )
+
+    if [[ "$FORCE_CERTBOT" -eq 1 ]]; then
+        CERTBOT_EXTRA_ARGS+=(--force-renewal)
+    else
+        CERTBOT_EXTRA_ARGS+=(--keep-until-expiring)
+    fi
+
+    echo
+    echo ">>> Tipo de clave solicitado: $CERTIFICATE_KEY_TYPE"
+    echo ">>> Tamaño de clave RSA: $RSA_KEY_SIZE bits"
+
     if ! /usr/bin/certbot certonly \
         --expand \
         --standalone \
@@ -144,7 +173,7 @@ echo ">>> Ejecutando Certbot..."
         --agree-tos \
         --email "$CERTBOT_EMAIL" \
         --preferred-chain "ISRG Root X1" \
-        --keep-until-expiring \
+        "${CERTBOT_EXTRA_ARGS[@]}" \
         "${CERTBOT_DOMAINS[@]}"
     then
         echo
@@ -165,6 +194,20 @@ fi
 
 if [[ ! -f "$CERT" || ! -f "$CHAIN" || ! -f "$FULLCHAIN" || ! -f "$PRIVKEY" ]]; then
     echo "ERROR: faltan archivos de Let's Encrypt."
+    exit 1
+fi
+
+# ============================================================
+# COMPROBAR TIPO DE CLAVE
+# ============================================================
+
+PUBLIC_KEY_ALGORITHM="$(openssl x509 -in "$CERT" -noout -text 2>/dev/null | \
+    awk -F': ' '/Public Key Algorithm:/ {print $2; exit}')"
+
+if [[ "$CERTIFICATE_KEY_TYPE" == "rsa" && "$PUBLIC_KEY_ALGORITHM" != "rsaEncryption" ]]; then
+    echo
+    echo "ERROR: Certbot no entregó un certificado RSA."
+    echo "       Algoritmo detectado: $PUBLIC_KEY_ALGORITHM"
     exit 1
 fi
 
