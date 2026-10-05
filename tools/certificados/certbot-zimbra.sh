@@ -183,7 +183,9 @@ echo ">>> Ejecutando Certbot..."
         exit 1
     fi
 
-    start_zimbra
+    # Zimbra permanece detenido mientras se valida y despliega el certificado.
+    # No es necesario iniciarlo aquí: el deploy actualiza los archivos en caliente
+    # y los servicios se iniciarán una sola vez al final.
 else
     echo
 echo ">>> Zimbra permanece funcionando."
@@ -341,9 +343,9 @@ echo ">>> Certificados desplegados:"
 su - zimbra -c "/opt/zimbra/bin/zmcertmgr viewdeployedcrt all"
 
 echo
-echo ">>> Reiniciando Zimbra..."
-if ! su - zimbra -c "zmcontrol restart"; then
-    echo "ERROR: fallo al reiniciar Zimbra."
+echo ">>> Levantando Zimbra con el nuevo certificado..."
+if ! start_zimbra; then
+    echo "ERROR: fallo al iniciar Zimbra."
     exit 1
 fi
 
